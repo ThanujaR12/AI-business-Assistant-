@@ -1,0 +1,54 @@
+<div class="app-container">
+  <div class="sidebar">
+    <app-file-management (filesChanged)="onFilesChanged($event)"></app-file-management>
+  </div>
+
+  <div class="main-content">
+    <div class="chat-container">
+      <!-- Scroll navigation controls -->
+      <div class="scroll-controls">
+        <button class="scroll-button top" (click)="scrollToTop()" title="Scroll to top">
+          <i class="fas fa-arrow-up"></i>
+        </button>
+        <button class="scroll-button bottom" (click)="scrollToBottom()" title="Scroll to bottom">
+          <i class="fas fa-arrow-down"></i>
+        </button>
+      </div>
+      
+      <!-- Make this the scrollable container -->
+      <div class="messages" #chatContainer>
+        <!-- Message bubbles -->
+        <div *ngFor="let message of messages; let i = index" 
+             [ngClass]="{'message': true, 'user-message': message.isUser, 'assistant-message': !message.isUser}">
+          <div class="message-content">
+            <div class="text" [innerHTML]="message.content | newline"></div>
+            <div *ngIf="message.graph" class="graph-container">
+              <div [id]="'graph-' + i" class="graph"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Add extra space at the bottom to prevent content from being cut off -->
+        <div class="bottom-space"></div>
+      </div>
+
+      <!-- Input area fixed at the bottom -->
+      <div class="input-container">
+        <input 
+          type="text" 
+          [(ngModel)]="userInput" 
+          (keyup.enter)="sendMessage()"
+          placeholder="Ask about your data (e.g., 'Show me sales trend' or 'Display gender distribution')"
+          [disabled]="isInputDisabled"
+        >
+        <button 
+          (click)="sendMessage()" 
+          [disabled]="isInputDisabled || !userInput.trim()"
+        >
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+

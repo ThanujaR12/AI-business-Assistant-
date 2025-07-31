@@ -1,0 +1,8 @@
+[API]
+apikey = your_openai_api_key_here
+
+[Assistant]
+assistant_id = your_assistant_id_here
+
+[Vector Store]
+vector_store_id = your_vector_store_id_here 

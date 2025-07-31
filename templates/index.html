@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Data Chat Assistant</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            display: flex;
+        }
+
+        .header {
+            background-color: #282c34;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #3d4451;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header .robot-logo {
+            width: 32px;
+            height: 32px;
+            fill: currentColor;
+        }
+
+        .sidebar {
+            width: 260px;
+            background-color: #202123;
+            height: 100vh;
+            color: #fff;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            position: fixed;
+            left: 0;
+            top: 0;
+            border-right: 1px solid #3d4451;
+        }
+
+        .new-chat-btn {
+            background-color: #343541;
+            color: #fff;
+            border: 1px solid #565869;
+            border-radius: 5px;
+            padding: 12px;
+            margin: 70px 0 20px 0; /* Added top margin to account for header */
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .new-chat-btn:hover {
+            background-color: #40414f;
+        }
+
+        .chat-list {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            margin-top: 10px;
+            padding-right: 5px;
+        }
+
+        .chat-item {
+            padding: 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background-color 0.2s;
+            color: #ececf1;
+            font-size: 14px;
+            word-break: break-word;
+            border: 1px solid transparent;
+        }
+
+        .chat-item:hover {
+            background-color: #343541;
+            border-color: #565869;
+        }
+
+        .chat-item.active {
+            background-color: #343541;
+            border-color: #565869;
+        }
+
+        .chat-item .delete-btn {
+            opacity: 0;
+            color: #888;
+            padding: 4px;
+            transition: opacity 0.2s;
+        }
+
+        .chat-item:hover .delete-btn {
+            opacity: 1;
+        }
+
+        .delete-btn:hover {
+            color: #ff4a4a;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            margin-left: 260px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px;
+            width: 100%;
+            height: calc(100vh - 70px); /* Adjusted for header height */
+            overflow-y: auto;
+        }
+
+        .upload-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+
+        .upload-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .upload-button:hover {
+            background-color: #0056b3;
+        }
+
+        .upload-status {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .upload-status.success {
+            color: #28a745;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .success-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            background-color: #28a745;
+            border-radius: 50%;
+        }
+
+        .success-icon svg {
+            width: 14px;
+            height: 14px;
+            color: white;
+        }
+
+        .chat-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 280px); /* Adjusted height to account for header and margins */
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-height: calc(100% - 140px);
+        }
+
+        /* Custom scrollbar styling for WebKit browsers */
+        .messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .messages::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            line-height: 1.5;
+            max-width: 85%;
+        }
+
+        .message.user {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end;
+        }
+
+        .message.assistant {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            align-self: flex-start;
+        }
+
+        .message-content {
+            white-space: pre-wrap;
+        }
+
+        .message.assistant .message-content {
+            color: #212529;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6c757d;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .input-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .detail-level {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .detail-level-slider {
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .input-controls {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .send-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+
+        .send-button:hover {
+            background-color: #0056b3;
+        }
+
+        .send-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #6c757d;
+            border-radius: 50%;
+            animation: typing 1s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-4px); }
+        }
+
+        .chart-container {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            height: 550px;
+            overflow: hidden;
+        }
+
+        .visualization-panel {
+            display: none;
+        }
+
+        .viz-container {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <button class="new-chat-btn" onclick="startNewChat()" id="newChatBtn" disabled>
+            <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            New chat
+        </button>
+        <div class="chat-list" id="chatList"></div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1>
+                <svg class="robot-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5A2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5a2.5 2.5 0 0 0 2.5 2.5a2.5 2.5 0 0 0 2.5-2.5a2.5 2.5 0 0 0-2.5-2.5Z"/>
+                </svg>
+                B.A Assistant
+            </h1>
+        </div>
+        
+    <div class="container">
+        <div class="upload-section">
+                <button class="upload-button" onclick="document.getElementById('fileInput').click()">
+                Upload File
+            </button>
+                <input type="file" id="fileInput" style="display: none" accept=".md,.csv">
+                <div id="uploadStatus" class="upload-status"></div>
+            </div>
+
+            <div class="chat-container">
+                <div class="messages" id="messages"></div>
+                <div class="input-section">
+                    <div class="detail-level">
+                        <span>Detail Level:</span>
+                        <input type="range" min="1" max="3" value="2" class="detail-level-slider" id="detailLevel">
+                        <span id="detailLevelValue">2</span>
+                    </div>
+                    <div class="input-controls">
+                        <input type="text" id="userInput" class="input-field" placeholder="Ask me anything about your business data..." disabled>
+                        <button id="sendButton" class="send-button" disabled>Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const messagesDiv = document.getElementById('messages');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const fileInput = document.getElementById('fileInput');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const detailLevel = document.getElementById('detailLevel');
+        const detailLevelValue = document.getElementById('detailLevelValue');
+        
+        let currentChatId = null;
+        let chats = {};  // Store all chats
+        
+        // Initialize chat history from localStorage
+        function initializeChats() {
+            // Start with empty chat history
+            chats = {};
+            currentChatId = null;
+            
+            // Clear any stored chats
+            localStorage.removeItem('chats');
+            
+            // Disable input initially
+            document.getElementById('userInput').disabled = true;
+            document.getElementById('userInput').placeholder = 'Please upload a file first...';
+            
+            // Enable new chat button
+            document.getElementById('newChatBtn').disabled = false;
+            
+            // Start first chat
+            startNewChat();
+        }
+
+        // Save chats to localStorage
+        function saveChats() {
+            localStorage.setItem('chats', JSON.stringify(chats));
+        }
+
+        // Create a new chat
+        function startNewChat() {
+            // Save current chat if exists
+            if (currentChatId && messagesDiv.innerHTML) {
+                chats[currentChatId].messages = messagesDiv.innerHTML;
+                chats[currentChatId].timestamp = Date.now();
+                saveChats();
+            }
+
+            // Clear messages
+            messagesDiv.innerHTML = '';
+            currentChatId = Date.now().toString();
+            
+            // Create new chat object with temporary title
+            chats[currentChatId] = {
+                title: 'New Chat',
+                timestamp: Date.now(),
+                messages: '',
+                hasFile: false,  // Start without a file
+                isFirstMessage: true  // Flag to track first message
+            };
+            
+            // Add welcome message
+            const welcomeMessage = `
+                <div class="message assistant">
+                    <div class="message-content">
+                        Hello! Please upload a file to start analyzing data.
+                    </div>
+                </div>
+            `;
+            messagesDiv.innerHTML = welcomeMessage;
+            
+            // Disable input until file is uploaded
+            document.getElementById('userInput').disabled = true;
+            document.getElementById('userInput').placeholder = 'Please upload a file first...';
+            
+            // Update chat list
+            renderChatList();
+            
+            // Clear file input
+            document.getElementById('fileInput').value = '';
+            uploadStatus.textContent = '';
+        }
+
+        // Switch to a specific chat
+        function switchToChat(chatId) {
+            if (currentChatId === chatId) return;
+            
+            // Save current messages if any
+            if (currentChatId && messagesDiv.innerHTML) {
+                chats[currentChatId].messages = messagesDiv.innerHTML;
+                chats[currentChatId].timestamp = Date.now();
+            }
+            
+            // Switch to selected chat
+            currentChatId = chatId;
+            messagesDiv.innerHTML = chats[chatId].messages || '';
+            
+            // Update input state based on file status
+            const userInput = document.getElementById('userInput');
+            if (chats[chatId].hasFile) {
+                userInput.disabled = false;
+                userInput.placeholder = 'Ask a question...';
+            } else {
+                userInput.disabled = true;
+                userInput.placeholder = 'Please upload a file first...';
+            }
+            
+            // Update active state in UI
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.getElementById(`chat-${chatId}`).classList.add('active');
+            
+            // Scroll to bottom
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Delete a chat
+        function deleteChat(event, chatId) {
+            event.stopPropagation();  // Prevent switching to chat when deleting
+            
+            delete chats[chatId];
+            saveChats();
+            
+            if (currentChatId === chatId) {
+                startNewChat();
+            } else {
+                renderChatList();
+            }
+        }
+
+        // Render chat list in sidebar
+        function renderChatList() {
+            const chatList = document.getElementById('chatList');
+            chatList.innerHTML = '';
+            
+            // Sort chats by timestamp, most recent first
+            const sortedChats = Object.entries(chats)
+                .sort(([,a], [,b]) => b.timestamp - a.timestamp);
+            
+            for (const [chatId, chat] of sortedChats) {
+                const chatItem = document.createElement('div');
+                chatItem.className = `chat-item${currentChatId === chatId ? ' active' : ''}${chat.hasFile ? ' has-file' : ''}`;
+                chatItem.id = `chat-${chatId}`;
+                
+                // Show 'New Chat' if no messages have been sent yet
+                const displayTitle = chat.isFirstMessage ? 'New Chat' : chat.title;
+                
+                chatItem.innerHTML = `
+                    <div class="file-indicator"></div>
+                    <span>${displayTitle}</span>
+                    <button class="delete-btn" onclick="deleteChat(event, '${chatId}')">
+                        <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                `;
+                chatItem.onclick = () => switchToChat(chatId);
+                chatList.appendChild(chatItem);
+            }
+            
+            saveChats();
+        }
+
+        // Update the input and button state when file is uploaded
+        function enableInput() {
+            const userInput = document.getElementById('userInput');
+            const sendButton = document.getElementById('sendButton');
+            userInput.disabled = false;
+            sendButton.disabled = false;
+            userInput.placeholder = 'Ask me anything about your business data...';
+            userInput.focus();
+        }
+
+        // Handle socket events for responses
+        socket.on('response', (response) => {
+            // Re-enable input and button after receiving response
+            const userInput = document.getElementById('userInput');
+            const sendButton = document.getElementById('sendButton');
+            userInput.disabled = false;
+            sendButton.disabled = false;
+            userInput.focus();
+
+            if (response.status === 'searching' || response.status === 'analyzing' || response.status === 'generating') {
+                // Update or create loading indicator
+                const existingLoading = document.querySelector('.message.loading');
+                if (existingLoading) {
+                    updateLoadingIndicator(response.progress);
+                } else {
+                    const loadingDiv = createLoadingIndicator(response.progress);
+                    messagesDiv.appendChild(loadingDiv);
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }
+                return;
+            }
+
+            // Remove loading indicators for final responses
+            removeAllLoadingIndicators();
+
+            if (response.status === 'error') {
+                addMessage('assistant', response.answer, null, null, 'error');
+                return;
+            }
+
+            if (response.status === 'complete') {
+                // Add the text response
+                if (response.answer) {
+                    addMessage('assistant', response.answer);
+                }
+                
+                // Add chart if present
+                if (response.charts) {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message assistant';
+                    
+                    const chartDiv = document.createElement('div');
+                    chartDiv.className = 'chart-container';
+                    chartDiv.id = `chart-${Date.now()}`;
+                    messageDiv.appendChild(chartDiv);
+                    messagesDiv.appendChild(messageDiv);
+                    
+                    try {
+                        const config = {
+                            responsive: true,
+                            displayModeBar: true,
+                            displaylogo: false,
+                            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                            toImageButtonOptions: {
+                                format: 'png',
+                                filename: 'chart',
+                                height: 500,
+                                width: 800,
+                                scale: 2
+                            }
+                        };
+
+                        Plotly.newPlot(
+                            chartDiv.id,
+                            response.charts.data,
+                            {
+                                ...response.charts.layout,
+                                autosize: true,
+                                margin: {
+                                    l: 50,
+                                    r: 50,
+                                    t: 50,
+                                    b: 100
+                                },
+                                font: {
+                                    family: 'Arial, sans-serif',
+                                    size: 12
+                                }
+                            },
+                            config
+                        ).then(() => {
+                            // Force a relayout after plot is created
+                            setTimeout(() => {
+                                Plotly.relayout(chartDiv.id, {
+                                    'xaxis.automargin': true,
+                                    'yaxis.automargin': true
+                                });
+                            }, 100);
+                        }).catch(error => {
+                            console.error('Error plotting chart:', error);
+                            chartDiv.textContent = 'Error plotting chart: ' + error.message;
+                        });
+                    } catch (error) {
+                        console.error('Error creating chart:', error);
+                        chartDiv.textContent = 'Error creating chart: ' + error.message;
+                    }
+                    
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }
+            }
+        });
+        
+        // Add message to chat
+        function addMessage(role, content, data = null, charts = null, state = '') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role} ${state}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            
+            if (role === 'user') {
+                contentDiv.textContent = content;
+            } else {
+                contentDiv.innerHTML = marked.parse(content);
+            }
+            
+            messageDiv.appendChild(contentDiv);
+            
+            if (charts) {
+                const chartDiv = document.createElement('div');
+                chartDiv.className = 'chart-container';
+                chartDiv.id = `chart-${Date.now()}`;
+                messageDiv.appendChild(chartDiv);
+                Plotly.newPlot(chartDiv.id, charts.data, charts.layout);
+            }
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        fileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            uploadStatus.className = 'upload-status uploading';
+            uploadStatus.textContent = 'Uploading...';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    uploadStatus.className = 'upload-status success';
+                    uploadStatus.innerHTML = `
+                        <span class="success-icon">
+                            <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </span>
+                        File uploaded successfully: <span class="filename">${file.name}</span>
+                    `;
+                    
+                    // Enable input and button
+                    enableInput();
+                    
+                    // Update current chat with file info
+                    if (currentChatId) {
+                        chats[currentChatId].hasFile = true;
+                        chats[currentChatId].fileName = file.name;
+                        saveChats();
+                        
+                        // Add success message to current chat
+                        addMessage('assistant', 'Great! I\'m ready to help you analyze the data. What would you like to know?');
+                        
+                        // Update chat list to show file status
+                        renderChatList();
+                    }
+                } else {
+                    uploadStatus.className = 'upload-status error';
+                    uploadStatus.textContent = 'Error uploading file: ' + (data.error || 'Unknown error');
+                }
+            } catch (error) {
+                uploadStatus.className = 'upload-status error';
+                uploadStatus.textContent = 'Error uploading file: ' + error.message;
+            }
+        });
+
+        function displayResponse(data) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+            
+            // Create text response container
+            const textResponse = document.createElement('div');
+            textResponse.className = 'message-content';
+            textResponse.innerHTML = marked.parse(data.response);
+            messageDiv.appendChild(textResponse);
+            
+            // Handle charts if present
+            if (data.charts && data.charts.length > 0) {
+                data.charts.forEach((chartData, index) => {
+                    const chartContainer = document.createElement('div');
+                    chartContainer.className = 'chart-container';
+                    const chartId = `chart-${Date.now()}-${index}`;
+                    chartContainer.id = chartId;
+                    messageDiv.appendChild(chartContainer);
+                    
+                    try {
+                        const chartJson = typeof chartData === 'string' ? JSON.parse(chartData) : chartData;
+                        Plotly.newPlot(chartId, chartJson.data, chartJson.layout, {
+                            responsive: true,
+                            displayModeBar: true,
+                            displaylogo: false,
+                            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+                        });
+                    } catch (error) {
+                        console.error('Error plotting chart:', error);
+                        chartContainer.innerHTML = '<p class="error-message">Error displaying chart</p>';
+                    }
+                });
+            }
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function sendMessage(message) {
+            if (!message || !message.trim()) return;
+            
+            // Add user message to chat
+            addMessage('user', message);
+            
+            // Clear input and disable while processing
+            userInput.value = '';
+            userInput.disabled = true;
+            sendButton.disabled = true;
+            
+            // Show loading indicator
+            const loadingDiv = createLoadingIndicator('Processing your question...');
+            messagesDiv.appendChild(loadingDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            // Emit the message to the server
+            socket.emit('question', {
+                question: message,
+                detailLevel: parseInt(detailLevel.value) || 2
+            });
+        }
+
+        // Event listeners for sending messages
+        sendButton.addEventListener('click', () => {
+            const message = userInput.value.trim();
+            if (message) {
+                sendMessage(message);
+            }
+        });
+
+        userInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                const message = userInput.value.trim();
+                if (message) {
+                    sendMessage(message);
+                }
+                event.preventDefault();
+            }
+        });
+
+        // Handle socket response
+        socket.on('response', (response) => {
+            // Remove loading indicator
+            const loadingIndicators = document.querySelectorAll('.message.loading');
+            loadingIndicators.forEach(indicator => indicator.remove());
+            
+            // Re-enable input
+            userInput.disabled = false;
+            sendButton.disabled = false;
+            userInput.focus();
+            
+            if (response.status === 'error') {
+                addMessage('assistant', response.answer);
+                return;
+            }
+            
+            if (response.answer) {
+                addMessage('assistant', response.answer);
+            }
+            
+            // Handle charts if present
+            if (response.charts && response.charts.length > 0) {
+                response.charts.forEach((chartData, index) => {
+                    const chartContainer = document.createElement('div');
+                    chartContainer.className = 'chart-container';
+                    chartContainer.id = `chart-${Date.now()}-${index}`;
+                    messagesDiv.appendChild(chartContainer);
+                    
+                    try {
+                        const chartJson = typeof chartData === 'string' ? JSON.parse(chartData) : chartData;
+                        Plotly.newPlot(
+                            chartContainer.id,
+                            chartJson.data,
+                            chartJson.layout,
+                            {
+                                responsive: true,
+                                displayModeBar: true,
+                                displaylogo: false
+                            }
+                        );
+                    } catch (error) {
+                        console.error('Error plotting chart:', error);
+                        chartContainer.innerHTML = '<p class="error-message">Error displaying chart</p>';
+                    }
+                });
+            }
+            
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeChats();
+        });
+        
+        // Start with a new chat disabled until file is uploaded
+        document.getElementById('newChatBtn').disabled = true;
+        document.getElementById('userInput').disabled = true;
+
+        // Handle socket events
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+        
+        socket.on('error', (error) => {
+            console.error('Socket error:', error);
+            addMessage('assistant', 'Error: ' + error.message);
+        });
+        
+        let currentMessageDiv = null;
+        
+        // Handle socket events for responses
+        let streamingContent = '';
+        
+        function createLoadingIndicator(message) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message assistant loading';
+            
+            const progressText = document.createElement('div');
+            progressText.className = 'progress-text';
+            progressText.textContent = message;
+            
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'typing-indicator';
+            
+            for (let i = 0; i < 3; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'typing-dot';
+                typingIndicator.appendChild(dot);
+            }
+            
+            loadingDiv.appendChild(progressText);
+            loadingDiv.appendChild(typingIndicator);
+            return loadingDiv;
+        }
+        
+        function removeAllLoadingIndicators() {
+            const loadingMessages = document.querySelectorAll('.message.loading');
+            loadingMessages.forEach(message => message.remove());
+        }
+        
+        function updateLoadingIndicator(message) {
+            const loadingMessage = document.querySelector('.message.loading');
+            if (loadingMessage) {
+                const progressText = loadingMessage.querySelector('.progress-text');
+                if (progressText) {
+                    progressText.textContent = message;
+                }
+            }
+        }
+    </script>
+</body>
+</html> 

@@ -1,0 +1,40 @@
+<div class="file-management-container">
+  <div class="upload-area" 
+       [class.dragover]="dragover"
+       (dragover)="onDragOver($event)"
+       (dragleave)="onDragLeave($event)"
+       (drop)="onDrop($event)">
+    <mat-icon>cloud_upload</mat-icon>
+    <p>Drag and drop files here or</p>
+    <input 
+      type="file" 
+      #fileInput
+      style="display: none"
+      (change)="onFileSelected($event)"
+      multiple
+    >
+    <button mat-raised-button color="primary" (click)="fileInput.click()">
+      Choose Files
+    </button>
+  </div>
+
+  <div class="files-list" *ngIf="existingFiles.length > 0">
+    <h3>Uploaded Files</h3>
+    <mat-list>
+      <mat-list-item *ngFor="let file of existingFiles">
+        <mat-icon matListItemIcon>description</mat-icon>
+        <div matListItemTitle>{{file.name}}</div>
+        <div matListItemLine>{{file.type}}</div>
+        <button mat-icon-button color="warn" (click)="deleteFile(file)">
+          <mat-icon>delete</mat-icon>
+        </button>
+      </mat-list-item>
+    </mat-list>
+  </div>
+
+  <mat-progress-bar 
+    *ngIf="isUploading"
+    mode="determinate"
+    [value]="uploadProgress">
+  </mat-progress-bar>
+</div> 

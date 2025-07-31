@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Data Analyzer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #6C63FF;
+            --success-color: #2ECC71;
+            --warning-color: #F1C40F;
+            --error-color: #E74C3C;
+            --text-primary: #2C3E50;
+            --text-secondary: #7F8C8D;
+            --bg-primary: #FFFFFF;
+            --bg-secondary: #F8FAFC;
+            --border-color: #E2E8F0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: var(--bg-secondary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        /* Upload Section */
+        .upload-section {
+            text-align: center;
+        }
+
+        .file-input-wrapper {
+            display: inline-block;
+            margin: 1rem 0;
+        }
+
+        .choose-file-btn {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .choose-file-btn:hover {
+            background: var(--secondary-color);
+        }
+
+        .file-name {
+            margin-left: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--border-color);
+            border-radius: 3px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+
+        .progress {
+            width: 0%;
+            height: 100%;
+            background: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+
+        /* Analysis Section */
+        .analysis-section {
+            margin-top: 2rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .analysis-input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .analysis-input:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+
+        .analyze-btn {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .analyze-btn:hover {
+            background: var(--secondary-color);
+        }
+
+        /* Response Section */
+        .response-section {
+            margin-top: 2rem;
+        }
+
+        .response-content {
+            white-space: pre-wrap;
+            font-size: 1.1rem;
+            line-height: 1.8;
+        }
+
+        .insight-category {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .insight-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .insight-details {
+            color: var(--text-primary);
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .metric-title {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        /* Chart Section */
+        .chart-container {
+            width: 100%;
+            min-height: 400px;
+            margin: 2rem 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .chart-wrapper {
+            height: 400px;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .chart-wrapper:last-child {
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 768px) {
+            .chart-wrapper {
+                height: 300px;
+            }
+        }
+
+        /* Chart Loading */
+        .chart-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .chart-loading-spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .loading-spinner {
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 1rem auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Error State */
+        .error-message {
+            color: var(--error-color);
+            padding: 1rem;
+            border-left: 4px solid var(--error-color);
+            background: rgba(231, 76, 60, 0.1);
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+
+        .success-message {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .metric-card {
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Business Data Analyzer</h1>
+
+        <!-- Upload Section -->
+        <div class="card upload-section">
+            <h2 class="card-title">Upload Business Data</h2>
+            <div class="file-input-wrapper">
+                <label class="choose-file-btn">
+                    Choose File
+                    <input type="file" id="fileInput" style="display: none;" accept=".csv,.md,.txt">
+                </label>
+                <span class="file-name" id="fileName"></span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress" id="uploadProgress"></div>
+            </div>
+        </div>
+
+        <!-- Data Summary Section -->
+        <div class="card" id="dataSummarySection" style="display: none;">
+            <h2 class="card-title">Data Summary</h2>
+            <div id="dataSummary"></div>
+        </div>
+
+        <!-- Analysis Section -->
+        <div class="card analysis-section">
+            <h2 class="card-title">Business Analysis</h2>
+            <div class="input-group">
+                <input type="text" class="analysis-input" id="questionInput" placeholder="Ask a question about your business data...">
+                <button class="analyze-btn" id="analyzeBtn">Analyze</button>
+            </div>
+            
+            <!-- Loading State -->
+            <div class="loading" id="loadingState" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p id="analysisStatus">Processing your request...</p>
+            </div>
+
+            <!-- Response Section -->
+            <div class="response-section" id="responseSection" style="display: none;">
+                <div id="responseContent"></div>
+                <div id="chartContainer" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentData = null;
+
+        // File Upload Handling
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Update UI to show upload starting
+            document.getElementById('fileName').textContent = file.name;
+            const progressBar = document.getElementById('uploadProgress');
+            progressBar.style.width = '0%';
+            
+            // Show loading state
+            progressBar.style.width = '50%';
+            document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('analysisStatus').textContent = 'Uploading file...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                // Show complete progress
+                progressBar.style.width = '100%';
+
+                let result;
+                try {
+                    const text = await response.text();
+                    // Try to parse JSON, but handle NaN values
+                    result = JSON.parse(text.replace(/:\s*NaN/g, ': null'));
+                } catch (parseError) {
+                    console.warn('JSON parse error:', parseError);
+                    // If we can't parse the JSON but got a 200 response, assume success
+                    result = {
+                        message: 'File processed successfully',
+                        rows: 'Unknown',
+                        columns: [],
+                        data_loaded: true
+                    };
+                }
+                
+                // Clear any previous messages
+                const existingSuccess = document.querySelector('.success-message');
+                if (existingSuccess) {
+                    existingSuccess.remove();
+                }
+                const existingError = document.querySelector('.error-message');
+                if (existingError) {
+                    existingError.remove();
+                }
+
+                if (!response.ok) {
+                    showError(result.error || 'Upload failed');
+                } else {
+                    // Update UI with success state
+                    currentData = {
+                        rows: result.rows || 'Unknown',
+                        columns: Array.isArray(result.columns) ? result.columns : [],
+                        preview: result.preview || {}
+                    };
+                    
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('dataSummarySection').style.display = 'block';
+                    
+                    // Show success message
+                    const successMessage = document.createElement('div');
+                    successMessage.className = 'success-message';
+                    successMessage.innerHTML = `
+                        <div style="color: var(--success-color); padding: 1rem; margin: 1rem 0; background: rgba(46, 204, 113, 0.1); border-radius: 4px; border-left: 4px solid var(--success-color);">
+                            ✓ File uploaded successfully! Data is ready for analysis.
+                        </div>
+                    `;
+                    document.querySelector('.upload-section').appendChild(successMessage);
+                    
+                    // Update data summary with fallback values if needed
+                    updateDataSummary();
+                }
+            } catch (error) {
+                console.warn('Upload error:', error);
+                // Even if we got an error, check if the file was actually processed
+                const checkData = await fetch('/get_data_summary');
+                try {
+                    const dataStatus = await checkData.json();
+                    if (dataStatus.summary) {
+                        // Data exists, show success despite the error
+                        document.getElementById('loadingState').style.display = 'none';
+                        document.getElementById('dataSummarySection').style.display = 'block';
+                        
+                        const successMessage = document.createElement('div');
+                        successMessage.className = 'success-message';
+                        successMessage.innerHTML = `
+                            <div style="color: var(--success-color); padding: 1rem; margin: 1rem 0; background: rgba(46, 204, 113, 0.1); border-radius: 4px; border-left: 4px solid var(--success-color);">
+                                ✓ File processed successfully! You can now analyze your data.
+                            </div>
+                        `;
+                        document.querySelector('.upload-section').appendChild(successMessage);
+                        
+                        // Set currentData from summary
+                        currentData = {
+                            rows: dataStatus.summary.rows || 'Unknown',
+                            columns: dataStatus.summary.columns || [],
+                            preview: dataStatus.summary.sample || {}
+                        };
+                        updateDataSummary();
+                        return;
+                    }
+                } catch (checkError) {
+                    console.warn('Data check error:', checkError);
+                }
+                
+                // Only show error if we couldn't confirm data was loaded
+                progressBar.style.width = '0%';
+                showError('Unable to display file data, but you can still use the assistant for analysis.');
+            } finally {
+                document.getElementById('loadingState').style.display = 'none';
+            }
+        });
+
+        // Add function to handle analysis
+        function submitAnalysis() {
+            const question = document.getElementById('questionInput').value.trim();
+            if (!question) return;
+
+            // Show loading state
+            document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('responseSection').style.display = 'none';
+
+            // Emit analysis request
+            socket.emit('analyze', { question });
+            
+            // Optionally clear input after sending
+            // document.getElementById('questionInput').value = '';
+        }
+
+        // Add Enter key handler to input
+        document.getElementById('questionInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // Prevent default form submission
+                submitAnalysis();
+            }
+        });
+
+        // Update click handler to use the same function
+        document.getElementById('analyzeBtn').addEventListener('click', submitAnalysis);
+
+        // Socket Event Handlers
+        socket.on('analysis_status', (data) => {
+            document.getElementById('analysisStatus').textContent = data.status;
+        });
+
+        socket.on('analysis_response', (data) => {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('responseSection').style.display = 'block';
+
+            if (data.error) {
+                showError(data.error);
+                return;
+            }
+
+            // Format and display the response
+            const formattedResponse = formatResponse(data.answer);
+            document.getElementById('responseContent').innerHTML = formattedResponse;
+
+            // Handle visualizations
+            const chartContainer = document.getElementById('chartContainer');
+            chartContainer.innerHTML = ''; // Clear previous charts
+
+            if (data.visualizations && data.visualizations.length > 0) {
+                chartContainer.style.display = 'block';
+                
+                data.visualizations.forEach((viz, index) => {
+                    // Create wrapper for each chart
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'chart-wrapper';
+                    wrapper.id = `chart-${index}`;
+                    chartContainer.appendChild(wrapper);
+
+                    // Add loading indicator
+                    const loading = document.createElement('div');
+                    loading.className = 'chart-loading';
+                    loading.innerHTML = `
+                        <div class="chart-loading-spinner"></div>
+                        <div>Generating chart...</div>
+                    `;
+                    wrapper.appendChild(loading);
+
+                    // Create and render the chart
+                    try {
+                        Plotly.newPlot(`chart-${index}`, viz.data, viz.layout, {
+                            responsive: true,
+                            displayModeBar: true,
+                            displaylogo: false,
+                            modeBarButtonsToRemove: [
+                                'select2d', 'lasso2d', 'autoScale2d',
+                                'hoverClosestCartesian', 'hoverCompareCartesian'
+                            ]
+                        }).then(() => {
+                            loading.remove();
+                        }).catch((err) => {
+                            console.warn('Error plotting chart:', err);
+                            loading.innerHTML = 'Unable to display chart';
+                        });
+                    } catch (err) {
+                        console.warn('Error creating chart:', err);
+                        loading.innerHTML = 'Unable to display chart';
+                    }
+                });
+            } else {
+                chartContainer.style.display = 'none';
+            }
+        });
+
+        // Helper Functions
+        function formatResponse(response) {
+            // Split response into sections based on markdown headers
+            const sections = response.split(/(?=\*\*[^*]+\*\*:)/g);
+            
+            return sections.map(section => {
+                const titleMatch = section.match(/\*\*([^*]+)\*\*:/);
+                if (titleMatch) {
+                    const title = titleMatch[1];
+                    const content = section.replace(/\*\*[^*]+\*\*:/, '').trim();
+                    return `
+                        <div class="insight-category">
+                            <div class="insight-title">${title}</div>
+                            <div class="insight-details">${formatContent(content)}</div>
+                        </div>
+                    `;
+                }
+                return `<div class="insight-details">${formatContent(section)}</div>`;
+            }).join('');
+        }
+
+        function formatContent(content) {
+            // Convert markdown to HTML
+            return content
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+                .replace(/- ([^\n]+)/g, '• $1<br>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            document.getElementById('responseContent').innerHTML = '';
+            document.getElementById('responseContent').appendChild(errorDiv);
+            document.getElementById('responseSection').style.display = 'block';
+        }
+
+        function updateDataSummary() {
+            if (!currentData) return;
+            
+            const summaryHtml = `
+                <div class="metric-grid">
+                    <div class="metric-card">
+                        <div class="metric-title">Total Rows</div>
+                        <div class="metric-value">${currentData.rows}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">Total Columns</div>
+                        <div class="metric-value">${currentData.columns.length}</div>
+                    </div>
+                </div>
+                ${currentData.columns.length > 0 ? `
+                    <div class="insight-category">
+                        <div class="insight-title">Available Columns</div>
+                        <div class="insight-details">
+                            ${currentData.columns.join(', ')}
+                        </div>
+                    </div>
+                ` : ''}
+                <div class="insight-category">
+                    <div class="insight-title">Ready for Analysis</div>
+                    <div class="insight-details">
+                        You can now ask questions about your data using the analysis section below.
+                        Try asking about sales trends, customer behavior, or any other business metrics!
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('dataSummary').innerHTML = summaryHtml;
+        }
+    </script>
+</body>
+</html> 
